@@ -24,6 +24,10 @@ service NetworkPolicyDiscoveryService {
       returns (stream envoy.service.discovery.v3.DiscoveryResponse) {
   }
 
+  rpc DeltaNetworkPolicies(stream envoy.service.discovery.v3.DeltaDiscoveryRequest)
+      returns (stream envoy.service.discovery.v3.DeltaDiscoveryResponse) {
+  }
+
   rpc FetchNetworkPolicies(envoy.service.discovery.v3.DiscoveryRequest)
       returns (envoy.service.discovery.v3.DiscoveryResponse) {
     option (google.api.http) = {
@@ -151,6 +155,10 @@ message PortNetworkPolicyRule {
   // applied on the flow's remote host is contained in this set.
   // Optional. If not specified, any remote host is matched by this predicate.
   repeated uint32 remote_policies = 7;
+
+  // A set of remote identities selectors that will be resolved from identity selector
+  // discovery service and used in union with remote_policies.
+  repeated uint64 remote_selectors = 11;
 
   // Optional downstream TLS context. If present, the incoming connection must
   // be a TLS connection.

@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+option go_package = "github.com/cilium/proxy/go/cilium/api;cilium";
+
+package cilium;
+
+import "envoy/service/discovery/v3/discovery.proto";
+
+import "google/api/annotations.proto";
+
+import "envoy/annotations/resource.proto";
+import "validate/validate.proto";
+
+service IdentitySelectorDiscoveryService {
+  option (envoy.annotations.resource).type = "cilium.IdentitySelector";
+
+  rpc StreamIdentitySelectors(stream envoy.service.discovery.v3.DiscoveryRequest)
+      returns (stream envoy.service.discovery.v3.DiscoveryResponse) {
+  }
+
+  rpc DeltaIdentitySelectors(stream envoy.service.discovery.v3.DeltaDiscoveryRequest)
+      returns (stream envoy.service.discovery.v3.DeltaDiscoveryResponse) {
+  }
+
+  rpc FetchIdentitySelectors(envoy.service.discovery.v3.DiscoveryRequest)
+      returns (envoy.service.discovery.v3.DiscoveryResponse) {
+    option (google.api.http) = {
+      post: "/v2/discovery:identity_selector"
+      body: "*"
+    };
+  }
+}
+
+message IdentitySelector {
+  // Unique identifier for the identity selector.
+  uint64 key = 1;
+
+  // Identities selected by this selector
+  repeated uint32 identities = 2 [
+    (validate.rules).repeated .unique = true,
+    (validate.rules).repeated .min_items = 1
+  ];
+}
+
+message IdentitySelectorsConfigDump {
+  repeated IdentitySelector identityselectors = 1;
+}

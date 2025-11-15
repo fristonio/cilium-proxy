@@ -19,6 +19,10 @@ service NetworkPolicyHostsDiscoveryService {
       returns (stream envoy.service.discovery.v3.DiscoveryResponse) {
   }
 
+  rpc DeltaNetworkPolicyHosts(stream envoy.service.discovery.v3.DeltaDiscoveryRequest)
+      returns (stream envoy.service.discovery.v3.DeltaDiscoveryResponse) {
+  }
+
   rpc FetchNetworkPolicyHosts(envoy.service.discovery.v3.DiscoveryRequest)
       returns (envoy.service.discovery.v3.DiscoveryResponse) {
     option (google.api.http) = {
@@ -41,4 +45,8 @@ message NetworkPolicyHosts {
     (validate.rules).repeated .unique = true,
     (validate.rules).repeated .items.string.min_len = 1
   ];
+}
+
+message NetworkPolicyHostsConfigDump {
+    repeated NetworkPolicyHosts networkpolicyhosts = 1;
 }

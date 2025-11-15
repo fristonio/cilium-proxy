@@ -67,3 +67,12 @@ api_cc_py_proto_library(
         "@envoy_api//envoy/service/discovery/v3:pkg",
     ],
 )
+
+api_cc_py_proto_library(
+    name = "isds",
+    srcs = ["isds.proto"],
+    deps = [
+        "@envoy_api//envoy/annotations:pkg",
+        "@envoy_api//envoy/service/discovery/v3:pkg",
+    ],
+)
