@@ -27,6 +27,7 @@
 #include "cilium/network_policy.h"
 #include "cilium/socket_option_cilium_mark.h"
 #include "cilium/socket_option_source_address.h"
+#include "identity_selector.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -42,13 +43,14 @@ struct SocketMetadata : public Logger::Loggable<Logger::Id::filter> {
                  Network::Address::InstanceConstSharedPtr source_address_ipv4,
                  Network::Address::InstanceConstSharedPtr source_address_ipv6,
                  Network::Address::InstanceConstSharedPtr original_dest_address,
-                 const PolicyResolverSharedPtr& policy_resolver, uint32_t proxy_id,
+                 const PolicyResolverSharedPtr& policy_resolver,
+                 const IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
                  std::string&& proxylib_l7_proto, absl::string_view sni)
       : ingress_source_identity_(ingress_source_identity), source_identity_(source_identity),
         ingress_(ingress), is_l7lb_(l7lb), port_(port), pod_ip_(std::move(pod_ip)),
         ingress_policy_name_(std::move(ingress_policy_name)), proxy_id_(proxy_id),
         proxylib_l7_proto_(std::move(proxylib_l7_proto)), sni_(sni),
-        policy_resolver_(policy_resolver), mark_(mark),
+        policy_resolver_(policy_resolver), selector_cache_(selector_cache), mark_(mark),
         original_source_address_(std::move(original_source_address)),
         source_address_ipv4_(std::move(source_address_ipv4)),
         source_address_ipv6_(std::move(source_address_ipv6)),
@@ -57,7 +59,7 @@ struct SocketMetadata : public Logger::Loggable<Logger::Id::filter> {
   std::shared_ptr<Envoy::Cilium::CiliumPolicyFilterState> buildCiliumPolicyFilterState() {
     return std::make_shared<Envoy::Cilium::CiliumPolicyFilterState>(
         ingress_source_identity_, source_identity_, ingress_, is_l7lb_, port_, std::move(pod_ip_),
-        std::move(ingress_policy_name_), policy_resolver_, proxy_id_, sni_);
+        std::move(ingress_policy_name_), policy_resolver_, selector_cache_, proxy_id_, sni_);
   };
 
   std::shared_ptr<Envoy::Cilium::CiliumDestinationFilterState> buildCiliumDestinationFilterState() {
@@ -97,10 +99,15 @@ struct SocketMetadata : public Logger::Loggable<Logger::Id::filter> {
       return;
     }
 
-    if (*original_dest_address_ == *socket.connectionInfoProvider().localAddress()) {
-      // Only set the local address if it really changed, and mark it as address being restored.
-      return;
-    }
+    // if (*original_dest_address_ == *socket.connectionInfoProvider().localAddress()) {
+    //   // Only set the local address if it really changed, and mark it as address being restored.
+    //   ENVOY_LOG(trace,
+    //             "Skipping setting local address (original destination) on socket {} ({} -> {})",
+    //             socket.ioHandle().fdDoNotUse(),
+    //             socket.connectionInfoProvider().localAddress()->asString(),
+    //             original_dest_address_->asString());
+    //   return;
+    // }
 
     // Restoration of the original destination address lets the OriginalDstCluster know the
     // destination address that can be used.
@@ -123,7 +130,9 @@ struct SocketMetadata : public Logger::Loggable<Logger::Id::filter> {
   uint32_t proxy_id_;
   std::string proxylib_l7_proto_;
   std::string sni_;
+
   const PolicyResolverSharedPtr policy_resolver_;
+  const Cilium::IdentitySelectorMapSharedPtr selector_cache_;
 
   uint32_t mark_;
 
@@ -173,6 +182,7 @@ public:
   Cilium::CtMapSharedPtr ct_maps_{};
   Cilium::IpCacheSharedPtr ipcache_{};
   std::shared_ptr<const Cilium::PolicyHostMap> hosts_{};
+  Cilium::IdentitySelectorMapSharedPtr selectors_{};
 
 private:
   uint32_t resolveSourceIdentity(const PolicyInstance& policy, const Network::Address::Ip* sip,

@@ -48,5 +48,5 @@ message NetworkPolicyHosts {
 }
 
 message NetworkPolicyHostsConfigDump {
-    repeated NetworkPolicyHosts networkpolicyhosts = 1;
+  repeated NetworkPolicyHosts networkpolicyhosts = 1;
 }

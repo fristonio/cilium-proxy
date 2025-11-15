@@ -52,7 +52,8 @@ CILIUM_PROTO_SOURCES := \
 	cilium/api/l7policy.proto \
 	cilium/api/network_filter.proto \
 	cilium/api/npds.proto \
-	cilium/api/nphds.proto
+	cilium/api/nphds.proto \
+	cilium/api/isds.proto
 CILIUM_PROTO_DIRS := $(sort $(dir $(CILIUM_PROTO_SOURCES)))
 RAW_GO_MAPPINGS += $(foreach proto,$(CILIUM_PROTO_SOURCES),$(proto)=github.com/cilium/proxy/go/$(dir $(proto)))
 
@@ -76,7 +77,7 @@ RAW_GO_MAPPINGS += opentelemetry/proto/common/v1/common.proto=go.opentelemetry.i
 
 # Add mapping separators and remove the trailing slash
 # but first create "/ " and ",M"
-E = 
+E =
 file_sep := / $E
 map_sep := ,M
 GO_MAPPINGS := $(patsubst %/,%,$(map_sep)$(subst $(file_sep),$(map_sep),$(RAW_GO_MAPPINGS)))

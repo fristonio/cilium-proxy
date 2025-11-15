@@ -30,7 +30,6 @@
 
 #include "source/common/common/assert.h"
 #include "source/common/common/logger.h"
-#include "source/common/common/macros.h"
 #include "source/common/common/thread.h"
 #include "source/common/init/target_impl.h"
 #include "source/common/protobuf/message_validator_impl.h"
@@ -47,6 +46,7 @@
 #include "cilium/api/npds.pb.h"
 #include "cilium/api/npds.pb.validate.h" // IWYU pragma: keep
 #include "cilium/conntrack.h"
+#include "cilium/identity_selector.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -92,31 +92,34 @@ public:
 
   // useProxylib returns true if a proxylib parser should be used.
   // 'l7_proto' is set to the parser name in that case.
-  bool useProxylib(uint32_t proxy_id, uint32_t remote_id, std::string& l7_proto) const;
+  bool useProxylib(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
+                   uint32_t remote_id, std::string& l7_proto) const;
   // HTTP-layer policy check. 'headers' and 'log_entry' may be manipulated by the policy.
-  bool allowed(uint32_t proxy_id, uint32_t remote_id, Envoy::Http::RequestHeaderMap& headers,
+  bool allowed(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
+               uint32_t remote_id, Envoy::Http::RequestHeaderMap& headers,
                Cilium::AccessLog::Entry& log_entry) const;
   // Network-layer policy check
-  bool allowed(uint32_t proxy_id, uint32_t remote_id, absl::string_view sni) const;
+  bool allowed(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
+               uint32_t remote_id, absl::string_view sni) const;
   // Envoy filter metadata policy check
-  bool allowed(uint32_t proxy_id, uint32_t remote_id,
-               const envoy::config::core::v3::Metadata& metadata) const;
+  bool allowed(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
+               uint32_t remote_id, const envoy::config::core::v3::Metadata& metadata) const;
   // getServerTlsContext returns the server TLS context, if any. If a non-null pointer is returned,
   // then also the config pointer '*config' is set.
   // If '*config' is nullptr and 'raw_socket_allowed' is 'true' on return then the policy
   // allows the connection without TLS and a raw socket should be used.
-  Ssl::ContextSharedPtr getServerTlsContext(uint32_t proxy_id, uint32_t remote_id,
-                                            absl::string_view sni,
-                                            const Ssl::ContextConfig** config,
-                                            bool& raw_socket_allowed) const;
+  Ssl::ContextSharedPtr
+  getServerTlsContext(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
+                      uint32_t remote_id, absl::string_view sni, const Ssl::ContextConfig** config,
+                      bool& raw_socket_allowed) const;
   // getClientTlsContext returns the client TLS context, if any. If a non-null pointer is returned,
   // then also the config pointer '*config' is set.
   // If '*config' is nullptr and 'raw_socket_allowed' is 'true' on return then the policy
   // allows the connection without TLS and a raw socket should be used.
-  Ssl::ContextSharedPtr getClientTlsContext(uint32_t proxy_id, uint32_t remote_id,
-                                            absl::string_view sni,
-                                            const Ssl::ContextConfig** config,
-                                            bool& raw_socket_allowed) const;
+  Ssl::ContextSharedPtr
+  getClientTlsContext(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, uint32_t proxy_id,
+                      uint32_t remote_id, absl::string_view sni, const Ssl::ContextConfig** config,
+                      bool& raw_socket_allowed) const;
 
 private:
   bool forRange(std::function<bool(const PortNetworkPolicyRules&, bool& denied)> allowed) const;
@@ -157,18 +160,21 @@ public:
     }
   };
 
-  virtual bool allowed(bool ingress, uint32_t proxy_id, uint32_t remote_id, uint16_t port,
+  virtual bool allowed(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, bool ingress,
+                       uint32_t proxy_id, uint32_t remote_id, uint16_t port,
                        Envoy::Http::RequestHeaderMap& headers,
                        Cilium::AccessLog::Entry& log_entry) const PURE;
 
-  virtual bool allowed(bool ingress, uint32_t proxy_id, uint32_t remote_id, absl::string_view sni,
+  virtual bool allowed(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, bool ingress,
+                       uint32_t proxy_id, uint32_t remote_id, absl::string_view sni,
                        uint16_t port) const PURE;
 
   virtual const PortPolicy findPortPolicy(bool ingress, uint16_t port) const PURE;
 
   // Returns true if the policy specifies l7 protocol for the connection, and
   // returns the l7 protocol string in 'l7_proto'
-  virtual bool useProxylib(bool ingress, uint32_t proxy_id, uint32_t remote_id, uint16_t port,
+  virtual bool useProxylib(const Cilium::IdentitySelectorMapSharedPtr& selector_cache, bool ingress,
+                           uint32_t proxy_id, uint32_t remote_id, uint16_t port,
                            std::string& l7_proto) const PURE;
 
   virtual const std::string& conntrackName() const PURE;
@@ -249,13 +255,7 @@ public:
                               const std::string& version_info) override;
   absl::Status onConfigUpdate(const std::vector<Envoy::Config::DecodedResourceRef>& added_resources,
                               const Protobuf::RepeatedPtrField<std::string>& removed_resources,
-                              const std::string& system_version_info) override {
-    // NOT IMPLEMENTED YET.
-    UNREFERENCED_PARAMETER(added_resources);
-    UNREFERENCED_PARAMETER(removed_resources);
-    UNREFERENCED_PARAMETER(system_version_info);
-    return absl::OkStatus();
-  }
+                              const std::string& system_version_info) override;
   void onConfigUpdateFailed(Envoy::Config::ConfigUpdateFailureReason,
                             const EnvoyException* e) override;
 

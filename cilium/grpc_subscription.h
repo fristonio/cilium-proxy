@@ -15,6 +15,7 @@
 #include "source/extensions/config_subscription/grpc/grpc_mux_context.h"
 #include "source/extensions/config_subscription/grpc/grpc_mux_impl.h"
 #include "source/extensions/config_subscription/grpc/grpc_subscription_impl.h"
+#include "source/extensions/config_subscription/grpc/xds_mux/grpc_mux_impl.h"
 
 namespace Envoy {
 namespace Cilium {
@@ -23,16 +24,16 @@ namespace Cilium {
 extern envoy::config::core::v3::ConfigSource cilium_xds_api_config;
 
 // GrpcMux wrapper to get access to control plane identifier
-class GrpcMuxImpl : public Config::GrpcMuxImpl {
+class GrpcMuxImpl : public Config::XdsMux::GrpcMuxDelta {
 public:
   GrpcMuxImpl(Config::GrpcMuxContext& grpc_mux_context, bool skip_subsequent_node)
-      : Config::GrpcMuxImpl(grpc_mux_context, skip_subsequent_node) {}
+      : Config::XdsMux::GrpcMuxDelta(grpc_mux_context, skip_subsequent_node) {}
 
   ~GrpcMuxImpl() override = default;
 
   void onStreamEstablished() override {
     new_stream_ = true;
-    Config::GrpcMuxImpl::onStreamEstablished();
+    Config::XdsMux::GrpcMuxDelta::onStreamEstablished();
   }
 
   // isNewStream returns true for the first call after a new stream has been established

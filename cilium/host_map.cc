@@ -89,6 +89,8 @@ protected:
     const auto& hosts = proto.host_addresses();
     std::string buf;
 
+    proto_resources_.insert({policy, proto});
+
     for (const auto& host : hosts) {
       const char* addr = host.c_str();
       unsigned int plen = 0;
@@ -171,6 +173,15 @@ PolicyHostMap::PolicyHostMap(Server::Configuration::CommonFactoryContext& contex
 }
 
 void PolicyHostMap::startSubscription(Server::Configuration::CommonFactoryContext& context) {
+  if (context.admin().has_value()) {
+    ENVOY_LOG(debug, "Registering NetworkPolicyHosts to config tracker");
+    config_tracker_entry_ = context.admin()->getConfigTracker().add(
+        "networkpolicyhosts", [this](const Matchers::StringMatcher& name_matcher) {
+          return dumpNetworkPolicyHostsConfigs(name_matcher);
+        });
+    RELEASE_ASSERT(config_tracker_entry_, "");
+  }
+
   subscription_ = subscribe("type.googleapis.com/cilium.NetworkPolicyHosts", context.localInfo(),
                             context.clusterManager(), context.mainThreadDispatcher(),
                             context.api().randomGenerator(), *scope_, *this,
@@ -212,10 +223,75 @@ PolicyHostMap::onConfigUpdate(const std::vector<Envoy::Config::DecodedResourceRe
   return absl::OkStatus();
 }
 
+absl::Status
+PolicyHostMap::onConfigUpdate(const std::vector<Envoy::Config::DecodedResourceRef>& added_resources,
+                              const Protobuf::RepeatedPtrField<std::string>& removed_resources,
+                              const std::string& system_version_info) {
+
+  ENVOY_LOG(debug, "PolicyHostMap::onDeltaConfigUpdate({}) [Added: {}, Removed: {}, Version: {}]",
+            instance_id_, added_resources.size(), removed_resources.size(), system_version_info);
+
+  auto newmap = std::make_shared<ThreadLocalHostMapInitializer>();
+  auto old_resources =
+      absl::flat_hash_map<uint64_t, cilium::NetworkPolicyHosts>(getHostMap()->proto_resources_);
+
+  for (const auto& policy : removed_resources) {
+    uint64_t policy_id = 0;
+    if (absl::SimpleAtoi(policy, &policy_id)) {
+      old_resources.erase(policy_id);
+    } else {
+      throw EnvoyException(fmt::format("Invalid policy id: {}", policy));
+    }
+  }
+
+  for (const auto& resource : added_resources) {
+    const auto& config = dynamic_cast<const cilium::NetworkPolicyHosts&>(resource.get().resource());
+    ENVOY_LOG(trace,
+              "Received NetworkPolicyHosts for policy {} in onConfigUpdate() "
+              "version {}",
+              config.policy(), system_version_info);
+    newmap->insert(config);
+  }
+
+  for (const auto& resource : old_resources) {
+    if (newmap->proto_resources_.find(resource.first) == newmap->proto_resources_.end()) {
+      newmap->insert(resource.second);
+    }
+  }
+
+  std::shared_ptr<PolicyHostMap> shared_this = shared_from_this();
+
+  // Assign the new map to all threads.
+  tls_->set([shared_this, newmap](Event::Dispatcher&) -> ThreadLocal::ThreadLocalObjectSharedPtr {
+    UNREFERENCED_PARAMETER(shared_this);
+    ENVOY_LOG(trace, "PolicyHostMap: Assigning new map");
+    return newmap;
+  });
+  logmaps("onConfigUpdate");
+
+  return absl::OkStatus();
+}
+
 void PolicyHostMap::onConfigUpdateFailed(Envoy::Config::ConfigUpdateFailureReason,
                                          const EnvoyException*) {
   // We need to allow server startup to continue, even if we have a bad
   // config.
+}
+
+ProtobufTypes::MessagePtr
+PolicyHostMap::dumpNetworkPolicyHostsConfigs(const Matchers::StringMatcher& name_matcher) {
+  ENVOY_LOG(debug, "Writing NetworkPolicyHosts to NetworkPolicyHostsConfigDump");
+
+  auto config_dump = std::make_unique<cilium::NetworkPolicyHostsConfigDump>();
+  for (const auto& item : getHostMap()->proto_resources_) {
+    if (!name_matcher.match(fmt::format("{}", item.first))) {
+      continue;
+    }
+
+    config_dump->mutable_networkpolicyhosts()->Add()->CopyFrom(item.second);
+  }
+
+  return config_dump;
 }
 
 } // namespace Cilium

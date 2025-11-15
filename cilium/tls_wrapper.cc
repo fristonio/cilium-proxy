@@ -131,10 +131,10 @@ public:
       bool raw_socket_allowed = false;
       auto proxy_id = policy_fs->proxy_id_;
       Envoy::Ssl::ContextSharedPtr ctx =
-          is_client ? port_policy.getClientTlsContext(proxy_id, remote_id, sni, &config,
-                                                      raw_socket_allowed)
-                    : port_policy.getServerTlsContext(proxy_id, remote_id, sni, &config,
-                                                      raw_socket_allowed);
+          is_client ? port_policy.getClientTlsContext(policy_fs->selector_cache_, proxy_id,
+                                                      remote_id, sni, &config, raw_socket_allowed)
+                    : port_policy.getServerTlsContext(policy_fs->selector_cache_, proxy_id,
+                                                      remote_id, sni, &config, raw_socket_allowed);
       if (ctx) {
         // create the underlying SslSocket
         auto status_or_socket = Extensions::TransportSockets::Tls::SslSocket::create(

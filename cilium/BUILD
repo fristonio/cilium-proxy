@@ -44,6 +44,7 @@ envoy_cc_library(
         "//cilium:accesslog_lib",
         "//cilium:conntrack_lib",
         "//cilium:grpc_subscription_lib",
+        "//cilium:identity_selector_lib",
         "//cilium:ipcache_lib",
         "//cilium/api:npds_cc_proto",
         "@envoy//envoy/config:subscription_interface",
@@ -97,6 +98,7 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
+        "//cilium:identity_selector_lib",
         "//cilium:network_policy_lib",
         "@envoy//source/common/common:logger_lib",
     ],
@@ -332,6 +334,7 @@ envoy_cc_library(
         "//cilium:conntrack_lib",
         "//cilium:filter_state_lib",
         "//cilium:grpc_subscription_lib",
+        "//cilium:identity_selector_lib",
         "//cilium:ipcache_lib",
         "//cilium:network_policy_lib",
         "//cilium:socket_option_lib",
@@ -348,6 +351,35 @@ envoy_cc_library(
         "@envoy//source/common/common:logger_lib",
         "@envoy//source/common/network:address_lib",
         "@envoy//source/common/router:config_utility_lib",
+    ],
+)
+
+envoy_cc_library(
+    name = "identity_selector_lib",
+    srcs = [
+        "identity_selector.cc",
+    ],
+    hdrs = [
+        "identity_selector.h",
+    ],
+    repository = "@envoy",
+    deps = [
+        "//cilium:grpc_subscription_lib",
+        "//cilium/api:isds_cc_proto",
+        "@envoy//envoy/config:subscription_interface",
+        "@envoy//envoy/singleton:manager_interface",
+        "@envoy//source/common/common:logger_lib",
+        "@envoy//source/common/config:opaque_resource_decoder_lib",
+        "@envoy//source/common/init:manager_lib",
+        "@envoy//source/common/init:target_lib",
+        "@envoy//source/common/init:watcher_lib",
+        "@envoy//source/common/local_info:local_info_lib",
+        "@envoy//source/common/router:config_utility_lib",
+        "@envoy//source/common/stats:timespan_lib",
+        "@envoy//source/common/tls:context_config_lib",
+        "@envoy//source/common/tls:server_context_config_lib",
+        "@envoy//source/server:transport_socket_config_lib",
+        "@envoy_api//envoy/type/matcher/v3:pkg_cc_proto",
     ],
 )
 

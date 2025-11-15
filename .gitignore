@@ -18,6 +18,7 @@
 
 # Bazel symlinks
 /bazel-*
+bazel-*
 
 /cilium-envoy
 /cilium-envoy-starter

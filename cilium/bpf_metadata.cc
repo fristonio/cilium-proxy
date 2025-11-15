@@ -43,6 +43,7 @@
 #include "cilium/filter_state_cilium_destination.h"
 #include "cilium/filter_state_cilium_policy.h"
 #include "cilium/host_map.h"
+#include "cilium/identity_selector.h"
 #include "cilium/ipcache.h"
 #include "cilium/network_policy.h"
 #include "cilium/policy_id.h"
@@ -175,6 +176,7 @@ namespace BpfMetadata {
 SINGLETON_MANAGER_REGISTRATION(cilium_bpf_conntrack);
 SINGLETON_MANAGER_REGISTRATION(cilium_host_map);
 SINGLETON_MANAGER_REGISTRATION(cilium_network_policy);
+SINGLETON_MANAGER_REGISTRATION(cilium_identity_selector);
 
 namespace {
 
@@ -193,6 +195,15 @@ createPolicyMap(Server::Configuration::FactoryContext& context, Cilium::CtMapSha
   return context.serverFactoryContext().singletonManager().getTyped<const Cilium::NetworkPolicyMap>(
       SINGLETON_MANAGER_REGISTERED_NAME(cilium_network_policy),
       [&context, &ct] { return std::make_shared<Cilium::NetworkPolicyMap>(context, ct); });
+}
+
+std::shared_ptr<const Cilium::IdentitySelectorMap>
+createSelectorMap(Server::Configuration::ListenerFactoryContext& context) {
+  return context.serverFactoryContext()
+      .singletonManager()
+      .getTyped<const Cilium::IdentitySelectorMap>(
+          SINGLETON_MANAGER_REGISTERED_NAME(cilium_identity_selector),
+          [&context] { return std::make_shared<Cilium::IdentitySelectorMap>(context); });
 }
 
 } // namespace
@@ -271,6 +282,7 @@ Config::Config(const ::cilium::BpfMetadata& config,
   // Only created if either ipcache_ or hosts_ map exists
   if (ipcache_ || hosts_) {
     npmap_ = createPolicyMap(context, ct_maps_);
+    selectors_ = createSelectorMap(context);
   }
 }
 
@@ -501,7 +513,8 @@ Config::extractSocketMetadata(Network::ConnectionSocket& socket) {
   // based policies (e.g., with MongoDB or MySQL filters).
   std::string proxylib_l7proto;
   uint32_t remote_id = is_ingress_ ? source_identity : destination_identity;
-  if (policy->useProxylib(is_ingress_, proxy_id_, remote_id, dip->port(), proxylib_l7proto)) {
+  if (policy->useProxylib(selectors_, is_ingress_, proxy_id_, remote_id, dip->port(),
+                          proxylib_l7proto)) {
     ENVOY_LOG(trace, "cilium.bpf_metadata: detected proxylib l7 proto: {}", proxylib_l7proto);
   }
 
@@ -529,7 +542,7 @@ Config::extractSocketMetadata(Network::ConnectionSocket& socket) {
       mark, ingress_source_identity, source_identity, is_ingress_, is_l7lb_, dip->port(),
       std::move(pod_ip), std::move(ingress_policy_name), std::move(src_address),
       std::move(source_addresses.ipv4_), std::move(source_addresses.ipv6_), std::move(dst_address),
-      shared_from_this(), proxy_id_, std::move(proxylib_l7proto), sni)};
+      shared_from_this(), selectors_, proxy_id_, std::move(proxylib_l7proto), sni)};
 }
 
 Network::FilterStatus Instance::onAccept(Network::ListenerFilterCallbacks& cb) {

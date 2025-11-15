@@ -24,7 +24,6 @@
 #include "envoy/thread_local/thread_local_object.h"
 
 #include "source/common/common/logger.h"
-#include "source/common/common/macros.h"
 #include "source/common/network/utility.h"
 #include "source/common/protobuf/message_validator_impl.h"
 #include "source/common/protobuf/protobuf.h"
@@ -179,6 +178,8 @@ public:
       return ID::WORLD;
     }
 
+    absl::flat_hash_map<uint64_t, cilium::NetworkPolicyHosts> proto_resources_;
+
   protected:
     // Vectors of <prefix-len>, <address-map> pairs, ordered in the decreasing
     // prefix length, where map keys are addresses of the given prefix length.
@@ -214,17 +215,15 @@ public:
                               const std::string& version_info) override;
   absl::Status onConfigUpdate(const std::vector<Envoy::Config::DecodedResourceRef>& added_resources,
                               const Protobuf::RepeatedPtrField<std::string>& removed_resources,
-                              const std::string& system_version_info) override {
-    // NOT IMPLEMENTED YET.
-    UNREFERENCED_PARAMETER(added_resources);
-    UNREFERENCED_PARAMETER(removed_resources);
-    UNREFERENCED_PARAMETER(system_version_info);
-    return absl::OkStatus();
-  }
+                              const std::string& system_version_info) override;
   void onConfigUpdateFailed(Envoy::Config::ConfigUpdateFailureReason,
                             const EnvoyException* e) override;
 
 private:
+  ProtobufTypes::MessagePtr
+  dumpNetworkPolicyHostsConfigs(const Matchers::StringMatcher& name_matcher);
+  Server::ConfigTracker::EntryOwnerPtr config_tracker_entry_;
+
   ThreadLocal::SlotPtr tls_;
   Stats::ScopeSharedPtr scope_;
   std::unique_ptr<Envoy::Config::Subscription> subscription_;

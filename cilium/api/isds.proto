@@ -36,10 +36,8 @@ message IdentitySelector {
   uint64 key = 1;
 
   // Identities selected by this selector
-  repeated uint32 identities = 2 [
-    (validate.rules).repeated .unique = true,
-    (validate.rules).repeated .min_items = 1
-  ];
+  repeated uint32 identities = 2
+      [(validate.rules).repeated .unique = true, (validate.rules).repeated .min_items = 1];
 }
 
 message IdentitySelectorsConfigDump {

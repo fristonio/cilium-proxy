@@ -37,14 +37,14 @@ bool CiliumPolicyFilterState::enforceNetworkPolicy(const Network::Connection& co
 
     auto port_policy = policy.findPortPolicy(ingress_, port);
 
-    if (!port_policy.allowed(proxy_id_, remote_id, sni)) {
+    if (!port_policy.allowed(selector_cache_, proxy_id_, remote_id, sni)) {
       ENVOY_CONN_LOG(debug, "Pod policy DENY on proxy_id: {} id: {} port: {} sni: \"{}\"", conn,
                      proxy_id_, remote_id, port, sni);
       return false;
     }
 
     // populate l7proto_ if available
-    use_proxy_lib = port_policy.useProxylib(proxy_id_, remote_id, l7_proto);
+    use_proxy_lib = port_policy.useProxylib(selector_cache_, proxy_id_, remote_id, l7_proto);
   }
 
   // enforce Ingress policy 2nd, if any
@@ -55,7 +55,7 @@ bool CiliumPolicyFilterState::enforceNetworkPolicy(const Network::Connection& co
     // Enforce ingress policy for Ingress, on the original destination port
     if (ingress_source_identity_ != 0) {
       auto ingress_port_policy = policy.findPortPolicy(true, port_);
-      if (!ingress_port_policy.allowed(proxy_id_, ingress_source_identity_, sni)) {
+      if (!ingress_port_policy.allowed(selector_cache_, proxy_id_, ingress_source_identity_, sni)) {
         ENVOY_CONN_LOG(debug,
                        "Ingress network policy {} DROP for source identity and destination "
                        "reserved ingress identity: {} proxy_id: {} port: {} sni: \"{}\"",
@@ -66,7 +66,7 @@ bool CiliumPolicyFilterState::enforceNetworkPolicy(const Network::Connection& co
 
     // Enforce egress policy for Ingress
     auto egress_port_policy = policy.findPortPolicy(false, destination_port);
-    if (!egress_port_policy.allowed(proxy_id_, destination_identity, sni)) {
+    if (!egress_port_policy.allowed(selector_cache_, proxy_id_, destination_identity, sni)) {
       ENVOY_CONN_LOG(debug,
                      "Egress network policy {} DROP for reserved ingress identity and destination "
                      "identity: {} proxy_id: {} port: {} sni: \"{}\"",
@@ -98,7 +98,7 @@ bool CiliumPolicyFilterState::enforcePodHTTPPolicy(const Network::Connection& co
     return true;
   }
 
-  if (!port_policy.allowed(proxy_id_, remote_id, headers, log_entry)) {
+  if (!port_policy.allowed(selector_cache_, proxy_id_, remote_id, headers, log_entry)) {
     ENVOY_CONN_LOG(debug,
                    "cilium.l7policy: Pod {} HTTP {} policy DENY on proxy_id: {} id: {} port: {}",
                    conn, pod_ip_, ingress_ ? "ingress" : "egress", proxy_id_, remote_id, port);
@@ -132,7 +132,8 @@ bool CiliumPolicyFilterState::enforceIngressHTTPPolicy(
       return true;
     }
 
-    if (!port_policy.allowed(proxy_id_, ingress_source_identity_, headers, log_entry)) {
+    if (!port_policy.allowed(selector_cache_, proxy_id_, ingress_source_identity_, headers,
+                             log_entry)) {
       ENVOY_CONN_LOG(
           debug,
           "cilium.l7policy: Ingress {} HTTP ingress policy DROP on proxy_id: {} id: {} port: {}",
@@ -151,7 +152,7 @@ bool CiliumPolicyFilterState::enforceIngressHTTPPolicy(
     return true;
   }
 
-  if (!port_policy.allowed(proxy_id_, destination_identity, headers, log_entry)) {
+  if (!port_policy.allowed(selector_cache_, proxy_id_, destination_identity, headers, log_entry)) {
     ENVOY_CONN_LOG(
         debug,
         "cilium.l7policy: Ingress {} HTTP egress policy DROP on proxy_id: {} id: {}  port: {}",

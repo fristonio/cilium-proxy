@@ -28,6 +28,7 @@
 #include "source/common/protobuf/protobuf.h" // IWYU pragma: keep
 #include "source/extensions/config_subscription/grpc/grpc_mux_context.h"
 #include "source/extensions/config_subscription/grpc/grpc_subscription_impl.h"
+#include "source/extensions/config_subscription/grpc/new_grpc_mux_impl.h"
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
@@ -60,6 +61,7 @@ TypeUrlToServiceMap* buildTypeUrlToServiceMap() {
   for (absl::string_view name : {
            "cilium.NetworkPolicyDiscoveryService",
            "cilium.NetworkPolicyHostsDiscoveryService",
+           "cilium.IdentitySelectorDiscoveryService",
        }) {
     const auto* service_desc =
         Protobuf::DescriptorPool::generated_pool()->FindServiceByName(std::string(name));
@@ -132,7 +134,7 @@ envoy::config::core::v3::ConfigSource getCiliumXDSAPIConfig() {
   config_source.set_resource_api_version(envoy::config::core::v3::ApiVersion::V3);
   auto api_config_source = config_source.mutable_api_config_source();
   api_config_source->set_set_node_on_first_message_only(true);
-  api_config_source->set_api_type(envoy::config::core::v3::ApiConfigSource::GRPC);
+  api_config_source->set_api_type(envoy::config::core::v3::ApiConfigSource::DELTA_GRPC);
   api_config_source->set_transport_api_version(envoy::config::core::v3::ApiVersion::V3);
   api_config_source->add_grpc_services()->mutable_envoy_grpc()->set_cluster_name("xds-grpc-cilium");
   return config_source;
@@ -171,7 +173,7 @@ subscribe(const std::string& type_url, const LocalInfo::LocalInfo& local_info,
           factory_or_error.value()->createUncachedRawAsyncClient(), Grpc::RawAsyncClientPtr),
       /*failover_async_client_=*/nullptr,
       /*dispatcher_=*/dispatcher,
-      /*service_method_=*/sotwGrpcMethod(type_url),
+      /*service_method_=*/deltaGrpcMethod(type_url),
       /*local_info_=*/local_info,
       /*rate_limit_settings_=*/rate_limit_settings_or_error.value(),
       /*scope_=*/scope,
@@ -189,6 +191,7 @@ subscribe(const std::string& type_url, const LocalInfo::LocalInfo& local_info,
   return std::make_unique<Config::GrpcSubscriptionImpl>(
       std::make_shared<GrpcMuxImpl>(grpc_mux_context,
                                     api_config_source.set_node_on_first_message_only()),
+      // std::make_shared<Config::NewGrpcMuxImpl>(grpc_mux_context),
       callbacks, resource_decoder, stats, type_url, dispatcher, init_fetch_timeout,
       /*is_aggregated*/ false, options);
 }
