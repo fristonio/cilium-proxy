@@ -155,7 +155,7 @@ public:
 
   IdentitySelectorMapImpl& getImpl() const { return *impl_; }
 
-  bool selects(absl::btree_set<uint64_t> selectors, uint32_t identity) const;
+  bool selects(const absl::btree_set<uint64_t>& selectors, uint32_t identity) const;
 
 private:
   ProtobufTypes::MessagePtr

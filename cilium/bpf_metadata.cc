@@ -535,9 +535,13 @@ Config::extractSocketMetadata(Network::ConnectionSocket& socket) {
 
   ENVOY_LOG(trace,
             "cilium.bpf_metadata: mark {}, ingress_source_identity {}, source_identity {}, "
-            "is_ingress {}, is_l7lb_ {}, ingress_policy_name {}, port {}, pod_ip {}",
+            "is_ingress {}, is_l7lb_ {}, source_address_v4 {} source_address_v6 {} dest_address {} "
+            "ingress_policy_name {}, port {}, pod_ip {}",
             mark, ingress_source_identity, source_identity, is_ingress_, is_l7lb_,
-            ingress_policy_name, dip->port(), pod_ip);
+            source_addresses.ipv4_ ? source_addresses.ipv4_->asString() : "null",
+            source_addresses.ipv6_ ? source_addresses.ipv6_->asString() : "null",
+            dst_address ? dst_address->asString() : "null", ingress_policy_name, dip->port(),
+            pod_ip);
   return {Cilium::BpfMetadata::SocketMetadata(
       mark, ingress_source_identity, source_identity, is_ingress_, is_l7lb_, dip->port(),
       std::move(pod_ip), std::move(ingress_policy_name), std::move(src_address),

@@ -419,10 +419,11 @@ public:
     if (proxy_id_ != 0 && proxy_id != proxy_id_) {
       return false;
     }
+
     // Remote ID must match if we have any.
-    if (!remotes_.empty()) {
-      auto match = remotes_.find(remote_id);
-      if (match != remotes_.end() || selector_cache->selects(remote_selectors_, remote_id)) {
+    if (!remotes_.empty() || !remote_selectors_.empty()) {
+      if (remotes_.find(remote_id) != remotes_.end() ||
+          selector_cache->selects(remote_selectors_, remote_id)) {
         // remote ID matched
         if (deny_) {
           // Explicit deny

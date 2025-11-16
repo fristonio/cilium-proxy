@@ -230,10 +230,12 @@ IdentitySelectorMap::IdentitySelectorMap(Server::Configuration::FactoryContext& 
   getImpl().startSubscription();
 }
 
-bool IdentitySelectorMap::selects(absl::btree_set<uint64_t> selectors, uint32_t identity) const {
+bool IdentitySelectorMap::selects(const absl::btree_set<uint64_t>& selectors,
+                                  uint32_t identity) const {
   auto selector_map = getImpl().load();
+
   for (const auto& selector : selectors) {
-    auto it = selector_map->find(selector);
+    const auto& it = selector_map->find(selector);
     if (it != selector_map->end() && it->second.find(identity) != it->second.end()) {
       return true;
     }
