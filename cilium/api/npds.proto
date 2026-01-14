@@ -161,7 +161,10 @@ message PortNetworkPolicyRule {
   TLSContext upstream_tls_context = 4;
 
   // Optional allowed SNIs in TLS handshake.
-  repeated string server_names = 6;
+  // Regex pattern here only validates valid DNS characters in the string.
+  // This is aligned with validation pattern of k8s type in cilium/cilium.
+  repeated string server_names = 6
+      [(validate.rules).repeated = {items: {string: {pattern: "^([-a-zA-Z0-9_*]+[.]?)+"}}}];
 
   // Optional L7 protocol parser name. This is only used if the parser is not
   // one of the well knows ones. If specified, the l7 parser having this name
