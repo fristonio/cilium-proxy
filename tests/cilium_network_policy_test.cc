@@ -494,6 +494,63 @@ egress:
   // No egress is allowed:
   EXPECT_FALSE(egressAllowed("10.1.2.3", 43, 8080));
   EXPECT_FALSE(egressAllowed("10.1.2.3", 44, 8080));
+
+  EXPECT_NO_THROW(updateFromYaml(R"EOF(version_info: "1"
+resources:
+- "@type": type.googleapis.com/cilium.NetworkPolicy
+  endpoint_ips:
+  - "10.1.2.3"
+  endpoint_id: 42
+  ingress_per_port_policies:
+  - port: 10000
+    end_port: 10001
+    rules:
+    - remote_policies: [ 43 ]
+  - port: 10000
+    end_port: 10003
+    rules:
+    - remote_policies: [ 44 ]
+  - port: 10000
+    end_port: 10005
+    rules:
+    - remote_policies: [ 45 ]
+  - port: 10000
+    end_port: 10003
+    rules:
+    - remote_policies: [ 46 ]
+)EOF"));
+
+  expected = R"EOF(ingress:
+  rules:
+    [10000-10001]:
+    - rules:
+      - remotes: [43]
+      - remotes: [44]
+      - remotes: [45]
+      - remotes: [46]
+    [10002-10003]:
+    - rules:
+      - remotes: [44]
+      - remotes: [45]
+      - remotes: [46]
+    [10004-10005]:
+    - rules:
+      - remotes: [45]
+egress:
+  rules: []
+)EOF";
+
+  EXPECT_TRUE(validate("10.1.2.3", expected));
+
+  EXPECT_FALSE(ingressAllowed("10.1.2.3", 43, 8080));
+  EXPECT_TRUE(ingressAllowed("10.1.2.3", 43, 10000));
+  EXPECT_TRUE(ingressAllowed("10.1.2.3", 43, 10001));
+  EXPECT_FALSE(ingressAllowed("10.1.2.3", 43, 10002));
+  EXPECT_TRUE(ingressAllowed("10.1.2.3", 44, 10002));
+  EXPECT_TRUE(ingressAllowed("10.1.2.3", 45, 10002));
+  EXPECT_TRUE(ingressAllowed("10.1.2.3", 46, 10002));
+  EXPECT_FALSE(ingressAllowed("10.1.2.3", 44, 10004));
+  EXPECT_FALSE(ingressAllowed("10.1.2.3", 46, 10005));
 }
 
 TEST_F(CiliumNetworkPolicyTest, DuplicatePorts) {
